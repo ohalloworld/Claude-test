@@ -1,16 +1,20 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Thresholds } from './thresholds';
 
-const PROFILE_KEY = 'baby-tracker.profile.v1';
+export const PROFILE_KEY = 'baby-tracker.profile.v1';
 
 export interface BabyProfile {
   dateOfBirth: number | null; // epoch ms, start of that day
   thresholdOverrides: Partial<Thresholds>;
+  painMedsPresets: string[];
 }
+
+export const DEFAULT_PAIN_MEDS_PRESETS = ['Paracetamol 2 tablets', 'Ibuprofen 400mg'];
 
 export const EMPTY_PROFILE: BabyProfile = {
   dateOfBirth: null,
   thresholdOverrides: {},
+  painMedsPresets: DEFAULT_PAIN_MEDS_PRESETS,
 };
 
 export async function loadProfile(): Promise<BabyProfile> {
@@ -21,6 +25,7 @@ export async function loadProfile(): Promise<BabyProfile> {
     return {
       dateOfBirth: parsed.dateOfBirth ?? null,
       thresholdOverrides: parsed.thresholdOverrides ?? {},
+      painMedsPresets: parsed.painMedsPresets ?? DEFAULT_PAIN_MEDS_PRESETS,
     };
   } catch {
     return EMPTY_PROFILE;
@@ -29,6 +34,10 @@ export async function loadProfile(): Promise<BabyProfile> {
 
 export async function saveProfile(profile: BabyProfile): Promise<void> {
   await AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+}
+
+export async function clearProfile(): Promise<void> {
+  await AsyncStorage.removeItem(PROFILE_KEY);
 }
 
 export function ageInWeeks(dateOfBirth: number | null, now: number = Date.now()): number | null {

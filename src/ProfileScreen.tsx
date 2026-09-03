@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { exportBackup, pickAndRestoreFileWeb } from './backup';
 import NumberField from './NumberField';
 import { formatAge } from './profile';
 import { defaultThresholdsForAge, Thresholds } from './thresholds';
@@ -9,8 +10,13 @@ interface Props {
   ageWeeks: number | null;
   thresholds: Thresholds;
   overrides: Partial<Thresholds>;
+  painMedsPresets: string[];
   onSetDateOfBirth: (dateOfBirth: number | null) => void;
   onSetThresholdOverride: (key: keyof Thresholds, value: number | undefined) => void;
+  onAddPainMedsPreset: (preset: string) => void;
+  onRemovePainMedsPreset: (preset: string) => void;
+  onResetEverything: () => Promise<void>;
+  onDataRestored: () => void;
 }
 
 export default function ProfileScreen({
@@ -18,9 +24,17 @@ export default function ProfileScreen({
   ageWeeks,
   thresholds,
   overrides,
+  painMedsPresets,
   onSetDateOfBirth,
   onSetThresholdOverride,
+  onAddPainMedsPreset,
+  onRemovePainMedsPreset,
+  onResetEverything,
+  onDataRestored,
 }: Props) {
+  const [newPreset, setNewPreset] = useState('');
+  const [backupMessage, setBackupMessage] = useState<string | null>(null);
+  const [confirmingReset, setConfirmingReset] = useState(false);
   const initial = useMemo(() => {
     const d = dateOfBirth ? new Date(dateOfBirth) : null;
     return {
@@ -33,6 +47,16 @@ export default function ProfileScreen({
   const [day, setDay] = useState(initial.day);
   const [month, setMonth] = useState(initial.month);
   const [year, setYear] = useState(initial.year);
+
+  // Re-sync if dateOfBirth changes from outside this screen's own edits
+  // (e.g. a reset while this tab is open) — useState's initial value is
+  // otherwise only applied once, on mount.
+  React.useEffect(() => {
+    setDay(initial.day);
+    setMonth(initial.month);
+    setYear(initial.year);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateOfBirth]);
 
   const applyDate = (nextDay: number, nextMonth: number, nextYear: number) => {
     const date = new Date(nextYear, nextMonth - 1, nextDay, 0, 0, 0, 0);
@@ -201,6 +225,107 @@ export default function ProfileScreen({
           defaultValue={ageDefaults.pooRedAbove}
         />
       </ThresholdSection>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Pain Meds Dose Presets</Text>
+        <Text style={styles.sectionSubtitle}>Shown as quick-tap chips after logging Pain Meds</Text>
+        <View style={styles.presetList}>
+          {painMedsPresets.map((preset) => (
+            <View key={preset} style={styles.presetChip}>
+              <Text style={styles.presetChipText}>{preset}</Text>
+              <Pressable onPress={() => onRemovePainMedsPreset(preset)} hitSlop={8}>
+                <Text style={styles.presetChipRemove}>✕</Text>
+              </Pressable>
+            </View>
+          ))}
+        </View>
+        <View style={styles.addPresetRow}>
+          <TextInput
+            style={styles.addPresetInput}
+            value={newPreset}
+            onChangeText={setNewPreset}
+            placeholder="e.g. Calpol 2.5ml"
+            onSubmitEditing={() => {
+              onAddPainMedsPreset(newPreset);
+              setNewPreset('');
+            }}
+          />
+          <Pressable
+            style={styles.addPresetButton}
+            onPress={() => {
+              onAddPainMedsPreset(newPreset);
+              setNewPreset('');
+            }}
+          >
+            <Text style={styles.addPresetButtonText}>Add</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Backup</Text>
+        <Text style={styles.sectionSubtitle}>
+          {Platform.OS === 'web'
+            ? 'Download a copy of all your data, or restore from a previous backup.'
+            : 'Share a copy of all your data. Restore is available in the web app.'}
+        </Text>
+        <View style={styles.backupRow}>
+          <Pressable
+            style={styles.backupButton}
+            onPress={async () => {
+              const result = await exportBackup();
+              setBackupMessage(result.message);
+            }}
+          >
+            <Text style={styles.backupButtonText}>Export data</Text>
+          </Pressable>
+          {Platform.OS === 'web' && (
+            <Pressable
+              style={[styles.backupButton, styles.backupButtonSecondary]}
+              onPress={() => {
+                pickAndRestoreFileWeb((result) => {
+                  setBackupMessage(result.message);
+                  if (result.ok) onDataRestored();
+                });
+              }}
+            >
+              <Text style={styles.backupButtonSecondaryText}>Restore from file</Text>
+            </Pressable>
+          )}
+        </View>
+        {backupMessage && <Text style={styles.backupMessage}>{backupMessage}</Text>}
+      </View>
+
+      <View style={[styles.section, styles.dangerSection]}>
+        <Text style={styles.dangerTitle}>Danger Zone</Text>
+        <Text style={styles.sectionSubtitle}>Deletes every logged entry and profile setting on this device.</Text>
+        {!confirmingReset ? (
+          <Pressable style={styles.dangerButton} onPress={() => setConfirmingReset(true)}>
+            <Text style={styles.dangerButtonText}>Reset everything</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.confirmBlock}>
+            <Text style={styles.confirmText}>
+              This permanently deletes all logged entries and your profile (age, presets, custom
+              thresholds). This cannot be undone. Consider exporting a backup first.
+            </Text>
+            <View style={styles.confirmButtons}>
+              <Pressable
+                style={styles.dangerButton}
+                onPress={async () => {
+                  await onResetEverything();
+                  setConfirmingReset(false);
+                }}
+              >
+                <Text style={styles.dangerButtonText}>Yes, delete everything</Text>
+              </Pressable>
+              <Pressable style={styles.cancelResetButton} onPress={() => setConfirmingReset(false)}>
+                <Text style={styles.cancelResetText}>Cancel</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+      </View>
     </ScrollView>
   );
 }
@@ -385,5 +510,132 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     backgroundColor: '#FFFFFF',
     color: '#1C1B1F',
+  },
+  presetList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+  },
+  presetChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0EBFA',
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  presetChipText: {
+    color: '#6650A4',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  presetChipRemove: {
+    color: '#6650A4',
+    fontSize: 13,
+  },
+  addPresetRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  addPresetInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#CAC4D0',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    backgroundColor: '#FFFFFF',
+    color: '#1C1B1F',
+  },
+  addPresetButton: {
+    backgroundColor: '#6650A4',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+  },
+  addPresetButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  backupRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 12,
+  },
+  backupButton: {
+    backgroundColor: '#6650A4',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  backupButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  backupButtonSecondary: {
+    backgroundColor: '#F0EBFA',
+  },
+  backupButtonSecondaryText: {
+    color: '#6650A4',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  backupMessage: {
+    marginTop: 10,
+    fontSize: 13,
+    color: '#49454F',
+  },
+  dangerSection: {
+    borderWidth: 1,
+    borderColor: '#F2B8B5',
+    marginBottom: 12,
+  },
+  dangerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#B3261E',
+  },
+  dangerButton: {
+    backgroundColor: '#B3261E',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginTop: 12,
+    alignSelf: 'flex-start',
+  },
+  dangerButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  confirmBlock: {
+    marginTop: 12,
+  },
+  confirmText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#B3261E',
+  },
+  confirmButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  cancelResetButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+  },
+  cancelResetText: {
+    color: '#79747E',
+    fontSize: 14,
   },
 });

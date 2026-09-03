@@ -154,7 +154,10 @@ function EventRow({
 
   return (
     <View style={styles.row}>
-      <Text style={styles.rowLabel}>{EVENT_LABELS[event.type]}</Text>
+      <View>
+        <Text style={styles.rowLabel}>{EVENT_LABELS[event.type]}</Text>
+        {event.detail && <Text style={styles.rowDetail}>{event.detail}</Text>}
+      </View>
       <View style={styles.rowActions}>
         <Pressable onPress={onStartEdit} hitSlop={8}>
           <Text style={styles.rowTime}>{formatClockTime(event.timestamp)}</Text>
@@ -207,6 +210,11 @@ const styles = StyleSheet.create({
   rowLabel: {
     fontSize: 15,
     color: '#1C1B1F',
+  },
+  rowDetail: {
+    fontSize: 12,
+    color: '#79747E',
+    marginTop: 2,
   },
   rowActions: {
     flexDirection: 'row',

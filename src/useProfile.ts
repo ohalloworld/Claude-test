@@ -1,17 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ageInWeeks, BabyProfile, EMPTY_PROFILE, loadProfile, saveProfile } from './profile';
+import { ageInWeeks, BabyProfile, clearProfile, EMPTY_PROFILE, loadProfile, saveProfile } from './profile';
 import { defaultThresholdsForAge, Thresholds } from './thresholds';
 
 export function useProfile() {
   const [profile, setProfile] = useState<BabyProfile>(EMPTY_PROFILE);
   const [loaded, setLoaded] = useState(false);
 
-  useEffect(() => {
-    loadProfile().then((p) => {
+  const reload = useCallback(() => {
+    return loadProfile().then((p) => {
       setProfile(p);
       setLoaded(true);
     });
   }, []);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
   const setDateOfBirth = useCallback((dateOfBirth: number | null) => {
     setProfile((prev) => {
@@ -35,11 +39,46 @@ export function useProfile() {
     });
   }, []);
 
+  const addPainMedsPreset = useCallback((preset: string) => {
+    const trimmed = preset.trim();
+    if (!trimmed) return;
+    setProfile((prev) => {
+      if (prev.painMedsPresets.includes(trimmed)) return prev;
+      const next = { ...prev, painMedsPresets: [...prev.painMedsPresets, trimmed] };
+      saveProfile(next);
+      return next;
+    });
+  }, []);
+
+  const removePainMedsPreset = useCallback((preset: string) => {
+    setProfile((prev) => {
+      const next = { ...prev, painMedsPresets: prev.painMedsPresets.filter((p) => p !== preset) };
+      saveProfile(next);
+      return next;
+    });
+  }, []);
+
+  const resetProfile = useCallback(async () => {
+    await clearProfile();
+    setProfile(EMPTY_PROFILE);
+  }, []);
+
   const ageWeeks = useMemo(() => ageInWeeks(profile.dateOfBirth), [profile.dateOfBirth]);
 
   const thresholds: Thresholds = useMemo(() => {
     return { ...defaultThresholdsForAge(ageWeeks), ...profile.thresholdOverrides };
   }, [ageWeeks, profile.thresholdOverrides]);
 
-  return { profile, loaded, ageWeeks, thresholds, setDateOfBirth, setThresholdOverride };
+  return {
+    profile,
+    loaded,
+    ageWeeks,
+    thresholds,
+    setDateOfBirth,
+    setThresholdOverride,
+    addPainMedsPreset,
+    removePainMedsPreset,
+    resetProfile,
+    reload,
+  };
 }

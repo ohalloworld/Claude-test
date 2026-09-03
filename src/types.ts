@@ -20,4 +20,8 @@ export interface TrackedEvent {
   id: string;
   type: EventType;
   timestamp: number;
+  detail?: string;
 }
+
+export const FEEDING_SIDE_OPTIONS = ['Left', 'Right', 'Both'] as const;
+

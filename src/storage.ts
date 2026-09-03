@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TrackedEvent } from './types';
 
-const STORAGE_KEY = 'baby-tracker.events.v1';
+export const STORAGE_KEY = 'baby-tracker.events.v1';
 
 export async function loadEvents(): Promise<TrackedEvent[]> {
   const raw = await AsyncStorage.getItem(STORAGE_KEY);
@@ -16,4 +16,8 @@ export async function loadEvents(): Promise<TrackedEvent[]> {
 
 export async function saveEvents(events: TrackedEvent[]): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+}
+
+export async function clearEvents(): Promise<void> {
+  await AsyncStorage.removeItem(STORAGE_KEY);
 }

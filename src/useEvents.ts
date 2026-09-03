@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { loadEvents, saveEvents } from './storage';
+import { clearEvents, loadEvents, saveEvents } from './storage';
 import { startOfDay } from './format';
 import { EventType, TrackedEvent } from './types';
 
@@ -20,22 +20,28 @@ export function useEvents() {
   const [events, setEvents] = useState<TrackedEvent[]>([]);
   const [loaded, setLoaded] = useState(false);
 
-  useEffect(() => {
-    loadEvents().then((loadedEvents) => {
+  const reload = useCallback(() => {
+    return loadEvents().then((loadedEvents) => {
       setEvents(loadedEvents);
       setLoaded(true);
     });
   }, []);
 
-  const logEvent = useCallback(async (type: EventType): Promise<TrackedEvent> => {
-    const event: TrackedEvent = { id: makeId(), type, timestamp: Date.now() };
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  const logEventAt = useCallback(async (type: EventType, timestamp: number): Promise<TrackedEvent> => {
+    const event: TrackedEvent = { id: makeId(), type, timestamp };
     setEvents((prev) => {
-      const next = [event, ...prev];
+      const next = [event, ...prev].sort((a, b) => b.timestamp - a.timestamp);
       saveEvents(next);
       return next;
     });
     return event;
   }, []);
+
+  const logEvent = useCallback((type: EventType) => logEventAt(type, Date.now()), [logEventAt]);
 
   const deleteEvent = useCallback((id: string) => {
     setEvents((prev) => {
@@ -53,6 +59,19 @@ export function useEvents() {
       saveEvents(next);
       return next;
     });
+  }, []);
+
+  const setEventDetail = useCallback((id: string, detail: string) => {
+    setEvents((prev) => {
+      const next = prev.map((e) => (e.id === id ? { ...e, detail } : e));
+      saveEvents(next);
+      return next;
+    });
+  }, []);
+
+  const resetAllEvents = useCallback(async () => {
+    await clearEvents();
+    setEvents([]);
   }, []);
 
   const homeStats: HomeStats = useMemo(() => {
@@ -78,5 +97,16 @@ export function useEvents() {
     };
   }, [events]);
 
-  return { events, loaded, homeStats, logEvent, deleteEvent, updateEventTime };
+  return {
+    events,
+    loaded,
+    homeStats,
+    logEvent,
+    logEventAt,
+    deleteEvent,
+    updateEventTime,
+    setEventDetail,
+    resetAllEvents,
+    reload,
+  };
 }
