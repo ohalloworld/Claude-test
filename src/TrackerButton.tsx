@@ -1,21 +1,29 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Tone } from './statusColors';
 
 interface Props {
+  icon: string;
   title: string;
   subtitle: string;
+  tone: Tone;
   onPress: () => void;
 }
 
-export default function TrackerButton({ title, subtitle, onPress }: Props) {
+export default function TrackerButton({ icon, title, subtitle, tone, onPress }: Props) {
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.button, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.button,
+        { backgroundColor: tone.background, borderColor: tone.border },
+        pressed && styles.pressed,
+      ]}
     >
-      <View>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.subtitle}>{subtitle}</Text>
+      <Text style={styles.icon}>{icon}</Text>
+      <View style={styles.textBlock}>
+        <Text style={[styles.title, { color: tone.title }]}>{title}</Text>
+        <Text style={[styles.subtitle, { color: tone.subtitle }]}>{subtitle}</Text>
       </View>
     </Pressable>
   );
@@ -23,29 +31,35 @@ export default function TrackerButton({ title, subtitle, onPress }: Props) {
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingVertical: 20,
-    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 2,
+    paddingVertical: 18,
+    paddingHorizontal: 18,
     minHeight: 88,
-    justifyContent: 'center',
     shadowColor: '#000',
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.06,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    elevation: 1,
   },
   pressed: {
-    backgroundColor: '#F0EBFA',
+    opacity: 0.8,
+  },
+  icon: {
+    fontSize: 32,
+    marginRight: 16,
+  },
+  textBlock: {
+    flex: 1,
   },
   title: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: '700',
-    color: '#1C1B1F',
   },
   subtitle: {
     fontSize: 14,
-    color: '#49454F',
-    marginTop: 4,
+    marginTop: 3,
   },
 });

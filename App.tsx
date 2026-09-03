@@ -3,13 +3,25 @@ import React, { useState } from 'react';
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import HistoryScreen from './src/HistoryScreen';
 import HomeScreen from './src/HomeScreen';
+import ProfileScreen from './src/ProfileScreen';
 import { useEvents } from './src/useEvents';
+import { useProfile } from './src/useProfile';
 
-type Tab = 'home' | 'history';
+type Tab = 'home' | 'history' | 'profile';
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('home');
-  const { events, loaded, homeStats, logEvent, deleteEvent } = useEvents();
+  const { events, loaded: eventsLoaded, homeStats, logEvent, deleteEvent, updateEventTime } = useEvents();
+  const {
+    profile,
+    loaded: profileLoaded,
+    ageWeeks,
+    thresholds,
+    setDateOfBirth,
+    setThresholdOverride,
+  } = useProfile();
+
+  const loaded = eventsLoaded && profileLoaded;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -19,15 +31,32 @@ export default function App() {
             <Text>Loading…</Text>
           </View>
         ) : tab === 'home' ? (
-          <HomeScreen stats={homeStats} logEvent={logEvent} deleteEvent={deleteEvent} />
+          <HomeScreen
+            stats={homeStats}
+            thresholds={thresholds}
+            dateOfBirth={profile.dateOfBirth}
+            logEvent={logEvent}
+            deleteEvent={deleteEvent}
+            onOpenProfile={() => setTab('profile')}
+          />
+        ) : tab === 'history' ? (
+          <HistoryScreen events={events} deleteEvent={deleteEvent} updateEventTime={updateEventTime} />
         ) : (
-          <HistoryScreen events={events} />
+          <ProfileScreen
+            dateOfBirth={profile.dateOfBirth}
+            ageWeeks={ageWeeks}
+            thresholds={thresholds}
+            overrides={profile.thresholdOverrides}
+            onSetDateOfBirth={setDateOfBirth}
+            onSetThresholdOverride={setThresholdOverride}
+          />
         )}
       </View>
 
       <View style={styles.tabBar}>
         <TabButton label="🏠 Home" active={tab === 'home'} onPress={() => setTab('home')} />
         <TabButton label="📋 History" active={tab === 'history'} onPress={() => setTab('history')} />
+        <TabButton label="👶 Profile" active={tab === 'profile'} onPress={() => setTab('profile')} />
       </View>
 
       <StatusBar style="auto" />

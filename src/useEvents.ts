@@ -45,6 +45,16 @@ export function useEvents() {
     });
   }, []);
 
+  const updateEventTime = useCallback((id: string, timestamp: number) => {
+    setEvents((prev) => {
+      const next = prev
+        .map((e) => (e.id === id ? { ...e, timestamp } : e))
+        .sort((a, b) => b.timestamp - a.timestamp);
+      saveEvents(next);
+      return next;
+    });
+  }, []);
+
   const homeStats: HomeStats = useMemo(() => {
     const todayStart = startOfDay(Date.now());
     const todayEvents = events.filter((e) => e.timestamp >= todayStart);
@@ -68,5 +78,5 @@ export function useEvents() {
     };
   }, [events]);
 
-  return { events, loaded, homeStats, logEvent, deleteEvent };
+  return { events, loaded, homeStats, logEvent, deleteEvent, updateEventTime };
 }
