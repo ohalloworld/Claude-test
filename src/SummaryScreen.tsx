@@ -74,9 +74,18 @@ export default function SummaryScreen({ events }: Props) {
           label="Avg. time between pain meds"
           value={averages.painMedsInterval !== null ? formatDurationHours(averages.painMedsInterval) : 'Not enough data'}
         />
-        <StatRow label="Avg. wet nappies / day" value={averages.wetPerDay.toFixed(1)} />
-        <StatRow label="Avg. poo nappies / day" value={averages.pooPerDay.toFixed(1)} />
-        <StatRow label="Avg. sleep / day" value={formatDurationHours(averages.sleepPerDay)} />
+        <StatRow
+          label="Avg. wet nappies / day"
+          value={averages.wetPerDay !== null ? averages.wetPerDay.toFixed(1) : 'Not enough data'}
+        />
+        <StatRow
+          label="Avg. poo nappies / day"
+          value={averages.pooPerDay !== null ? averages.pooPerDay.toFixed(1) : 'Not enough data'}
+        />
+        <StatRow
+          label="Avg. sleep / day"
+          value={averages.sleepPerDay !== null ? formatDurationHours(averages.sleepPerDay) : 'Not enough data'}
+        />
         <StatRow
           label="Avg. sleep session length"
           value={averages.sleepSession !== null ? formatDurationHours(averages.sleepSession) : 'Not enough data'}

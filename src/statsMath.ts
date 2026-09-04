@@ -9,6 +9,19 @@ export function eventsInLastNDays(events: TrackedEvent[], days: number, now: num
   return events.filter((e) => e.timestamp >= cutoff);
 }
 
+/**
+ * How many days to divide a "per day" average by: the trailing window,
+ * capped at how long the log has actually existed. Without this, a log
+ * that only started a few days ago would have its per-day averages
+ * silently deflated by dividing real counts by a full 7-day denominator.
+ */
+function effectiveWindowDays(events: TrackedEvent[], maxDays: number, now: number): number {
+  if (events.length === 0) return 0;
+  const firstTimestamp = Math.min(...events.map((e) => e.timestamp));
+  const daysSinceFirst = (now - firstTimestamp) / DAY_MS;
+  return Math.min(maxDays, daysSinceFirst);
+}
+
 /** Average hours between consecutive events of a type, over the last N days. Null if fewer than 2 events. */
 export function avgIntervalHours(
   events: TrackedEvent[],
@@ -24,15 +37,22 @@ export function avgIntervalHours(
   return totalMs / (windowed.length - 1) / HOUR_MS;
 }
 
-/** Average count per day of a type, over the last N days (including days with zero). */
+/**
+ * Average count per day of a type, over the last N days (including days
+ * with zero) — divided by how many days the log has actually spanned, up
+ * to `days`, not by `days` itself. Null if there's less than a day of
+ * history yet (too little to extrapolate a daily rate from).
+ */
 export function avgCountPerDay(
   events: TrackedEvent[],
   type: EventType,
   days: number,
   now: number = Date.now()
-): number {
+): number | null {
+  const windowDays = effectiveWindowDays(events, days, now);
+  if (windowDays < 1) return null;
   const windowed = eventsInLastNDays(events, days, now).filter((e) => e.type === type);
-  return windowed.length / days;
+  return windowed.length / windowDays;
 }
 
 export function todayCount(events: TrackedEvent[], type: EventType, now: number = Date.now()): number {
@@ -76,10 +96,13 @@ export function avgSleepSessionHours(events: TrackedEvent[], days: number, now: 
   return totalHours / sessions.length;
 }
 
-export function avgSleepHoursPerDay(events: TrackedEvent[], days: number, now: number = Date.now()): number {
+/** Same effective-window logic as avgCountPerDay — see its comment. */
+export function avgSleepHoursPerDay(events: TrackedEvent[], days: number, now: number = Date.now()): number | null {
+  const windowDays = effectiveWindowDays(events, days, now);
+  if (windowDays < 1) return null;
   const sessions = sessionsEndingInLastNDays(events, days, now);
   const totalHours = sessions.reduce((sum, s) => sum + (s.end - s.start) / HOUR_MS, 0);
-  return totalHours / days;
+  return totalHours / windowDays;
 }
 
 export function longestSleepStretchHours(events: TrackedEvent[], days: number, now: number = Date.now()): number | null {
