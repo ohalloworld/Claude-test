@@ -120,6 +120,20 @@ export function useEvents(householdId: string | null, displayName: string) {
     setEvents([]);
   }, []);
 
+  // Uploads this device's current local history into a household — used
+  // right after linking (create or join) so pre-existing entries aren't
+  // stranded on one device. Safe to call from both sides: events are
+  // independently-keyed documents, not a single overwritable doc like
+  // Profile, so both partners' histories simply union together rather than
+  // one clobbering the other.
+  const pushAllEventsToHousehold = useCallback(
+    async (targetHouseholdId: string): Promise<number> => {
+      await Promise.all(events.map((event) => pushEventToHousehold(targetHouseholdId, event)));
+      return events.length;
+    },
+    [events]
+  );
+
   const homeStats: HomeStats = useMemo(() => {
     const todayStart = startOfDay(Date.now());
     const todayEvents = events.filter((e) => e.timestamp >= todayStart);
@@ -153,6 +167,7 @@ export function useEvents(householdId: string | null, displayName: string) {
     updateEventTime,
     setEventDetail,
     resetAllEvents,
+    pushAllEventsToHousehold,
     reload,
   };
 }

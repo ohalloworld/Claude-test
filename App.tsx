@@ -40,6 +40,7 @@ export default function App() {
     updateEventTime,
     setEventDetail,
     resetAllEvents,
+    pushAllEventsToHousehold,
     reload: reloadEvents,
   } = useEvents(householdId, displayName);
 
@@ -53,6 +54,17 @@ export default function App() {
     reloadEvents();
     reloadProfile();
   };
+
+  const withMergedHistory = async (linkResult: () => ReturnType<typeof createAndLinkHousehold>) => {
+    const result = await linkResult();
+    if (!result.ok || !result.householdId) return result;
+    const mergedCount = await pushAllEventsToHousehold(result.householdId);
+    const mergeNote = mergedCount > 0 ? ` Merged in ${mergedCount} of your existing entries.` : '';
+    return { ...result, message: `${result.message}${mergeNote}` };
+  };
+
+  const handleCreateHousehold = () => withMergedHistory(createAndLinkHousehold);
+  const handleJoinHousehold = (code: string) => withMergedHistory(() => joinAndLinkHousehold(code));
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -91,8 +103,8 @@ export default function App() {
             onAddPainMedsPreset={addPainMedsPreset}
             onRemovePainMedsPreset={removePainMedsPreset}
             onSetDisplayName={setDisplayName}
-            onCreateHousehold={createAndLinkHousehold}
-            onJoinHousehold={joinAndLinkHousehold}
+            onCreateHousehold={handleCreateHousehold}
+            onJoinHousehold={handleJoinHousehold}
             onLeaveHousehold={leaveHousehold}
             onResetEverything={handleResetEverything}
             onDataRestored={handleDataRestored}
