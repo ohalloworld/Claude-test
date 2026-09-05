@@ -13,6 +13,24 @@ type Tab = 'home' | 'history' | 'summary' | 'profile';
 export default function App() {
   const [tab, setTab] = useState<Tab>('home');
   const {
+    profile,
+    householdId,
+    displayName,
+    loaded: profileLoaded,
+    ageWeeks,
+    thresholds,
+    setDateOfBirth,
+    setThresholdOverride,
+    addPainMedsPreset,
+    removePainMedsPreset,
+    setDisplayName,
+    createAndLinkHousehold,
+    joinAndLinkHousehold,
+    leaveHousehold,
+    resetProfile,
+    reload: reloadProfile,
+  } = useProfile();
+  const {
     events,
     loaded: eventsLoaded,
     homeStats,
@@ -23,19 +41,7 @@ export default function App() {
     setEventDetail,
     resetAllEvents,
     reload: reloadEvents,
-  } = useEvents();
-  const {
-    profile,
-    loaded: profileLoaded,
-    ageWeeks,
-    thresholds,
-    setDateOfBirth,
-    setThresholdOverride,
-    addPainMedsPreset,
-    removePainMedsPreset,
-    resetProfile,
-    reload: reloadProfile,
-  } = useProfile();
+  } = useEvents(householdId, displayName);
 
   const loaded = eventsLoaded && profileLoaded;
 
@@ -78,10 +84,16 @@ export default function App() {
             thresholds={thresholds}
             overrides={profile.thresholdOverrides}
             painMedsPresets={profile.painMedsPresets}
+            householdId={householdId}
+            displayName={displayName}
             onSetDateOfBirth={setDateOfBirth}
             onSetThresholdOverride={setThresholdOverride}
             onAddPainMedsPreset={addPainMedsPreset}
             onRemovePainMedsPreset={removePainMedsPreset}
+            onSetDisplayName={setDisplayName}
+            onCreateHousehold={createAndLinkHousehold}
+            onJoinHousehold={joinAndLinkHousehold}
+            onLeaveHousehold={leaveHousehold}
             onResetEverything={handleResetEverything}
             onDataRestored={handleDataRestored}
           />

@@ -21,6 +21,7 @@ export interface TrackedEvent {
   type: EventType;
   timestamp: number;
   detail?: string;
+  loggedBy?: string;
 }
 
 export const FEEDING_SIDE_OPTIONS = ['Left', 'Right', 'Both'] as const;

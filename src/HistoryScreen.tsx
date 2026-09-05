@@ -156,7 +156,11 @@ function EventRow({
     <View style={styles.row}>
       <View>
         <Text style={styles.rowLabel}>{EVENT_LABELS[event.type]}</Text>
-        {event.detail && <Text style={styles.rowDetail}>{event.detail}</Text>}
+        {(event.detail || event.loggedBy) && (
+          <Text style={styles.rowDetail}>
+            {[event.detail, event.loggedBy && `logged by ${event.loggedBy}`].filter(Boolean).join(' · ')}
+          </Text>
+        )}
       </View>
       <View style={styles.rowActions}>
         <Pressable onPress={onStartEdit} hitSlop={8}>

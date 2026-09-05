@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { exportBackup, pickAndRestoreFileWeb } from './backup';
+import { isFirebaseConfigured } from './firebase';
+import { HouseholdResult } from './household';
 import NumberField from './NumberField';
 import { formatAge } from './profile';
 import { defaultThresholdsForAge, Thresholds } from './thresholds';
@@ -11,10 +13,16 @@ interface Props {
   thresholds: Thresholds;
   overrides: Partial<Thresholds>;
   painMedsPresets: string[];
+  householdId: string | null;
+  displayName: string;
   onSetDateOfBirth: (dateOfBirth: number | null) => void;
   onSetThresholdOverride: (key: keyof Thresholds, value: number | undefined) => void;
   onAddPainMedsPreset: (preset: string) => void;
   onRemovePainMedsPreset: (preset: string) => void;
+  onSetDisplayName: (name: string) => void;
+  onCreateHousehold: () => Promise<HouseholdResult>;
+  onJoinHousehold: (code: string) => Promise<HouseholdResult>;
+  onLeaveHousehold: () => void;
   onResetEverything: () => Promise<void>;
   onDataRestored: () => void;
 }
@@ -25,16 +33,26 @@ export default function ProfileScreen({
   thresholds,
   overrides,
   painMedsPresets,
+  householdId,
+  displayName,
   onSetDateOfBirth,
   onSetThresholdOverride,
   onAddPainMedsPreset,
   onRemovePainMedsPreset,
+  onSetDisplayName,
+  onCreateHousehold,
+  onJoinHousehold,
+  onLeaveHousehold,
   onResetEverything,
   onDataRestored,
 }: Props) {
   const [newPreset, setNewPreset] = useState('');
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
   const [confirmingReset, setConfirmingReset] = useState(false);
+  const [joinCodeInput, setJoinCodeInput] = useState('');
+  const [nameInput, setNameInput] = useState(displayName);
+  const [householdMessage, setHouseholdMessage] = useState<string | null>(null);
+  const [householdBusy, setHouseholdBusy] = useState(false);
   const initial = useMemo(() => {
     const d = dateOfBirth ? new Date(dateOfBirth) : null;
     return {
@@ -58,15 +76,107 @@ export default function ProfileScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateOfBirth]);
 
+  // Same staleness fix as the DOB fields above, applied to the name field.
+  React.useEffect(() => {
+    setNameInput(displayName);
+  }, [displayName]);
+
   const applyDate = (nextDay: number, nextMonth: number, nextYear: number) => {
     const date = new Date(nextYear, nextMonth - 1, nextDay, 0, 0, 0, 0);
     onSetDateOfBirth(date.getTime());
   };
 
   const ageDefaults = defaultThresholdsForAge(ageWeeks);
+  const firebaseReady = isFirebaseConfigured();
+
+  const handleCreate = async () => {
+    setHouseholdBusy(true);
+    const result = await onCreateHousehold();
+    setHouseholdMessage(result.message);
+    setHouseholdBusy(false);
+  };
+
+  const handleJoin = async () => {
+    if (!joinCodeInput.trim()) return;
+    setHouseholdBusy(true);
+    const result = await onJoinHousehold(joinCodeInput);
+    setHouseholdMessage(result.message);
+    setHouseholdBusy(false);
+    if (result.ok) setJoinCodeInput('');
+  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Text style={styles.heading}>Share with a Partner</Text>
+      {!firebaseReady ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionSubtitle}>
+            Sharing needs a one-time setup step (a free Firebase project) before it can be turned on.
+            See the project README for exact steps.
+          </Text>
+        </View>
+      ) : householdId ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Linked</Text>
+          <Text style={styles.sectionSubtitle}>Your invite code — share it with your partner too:</Text>
+          <Text style={styles.inviteCode}>{householdId}</Text>
+
+          <Text style={[styles.sectionSubtitle, { marginTop: 16 }]}>Your name (shown on entries you log)</Text>
+          <View style={styles.addPresetRow}>
+            <TextInput
+              style={styles.addPresetInput}
+              value={nameInput}
+              onChangeText={setNameInput}
+              placeholder="e.g. Mum"
+              onBlur={() => onSetDisplayName(nameInput)}
+              onSubmitEditing={() => onSetDisplayName(nameInput)}
+            />
+          </View>
+
+          <Pressable style={styles.unlinkButton} onPress={onLeaveHousehold}>
+            <Text style={styles.link}>Unlink this device</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <View style={styles.section}>
+          <Text style={styles.sectionSubtitle}>
+            Link two devices to the same baby so entries logged on either one show up on both, in real
+            time.
+          </Text>
+
+          <Text style={[styles.sectionSubtitle, { marginTop: 16 }]}>Your name (shown on entries you log)</Text>
+          <View style={styles.addPresetRow}>
+            <TextInput
+              style={styles.addPresetInput}
+              value={nameInput}
+              onChangeText={setNameInput}
+              placeholder="e.g. Mum"
+              onBlur={() => onSetDisplayName(nameInput)}
+              onSubmitEditing={() => onSetDisplayName(nameInput)}
+            />
+          </View>
+
+          <Pressable style={[styles.backupButton, { marginTop: 16 }]} onPress={handleCreate} disabled={householdBusy}>
+            <Text style={styles.backupButtonText}>Create a household</Text>
+          </Pressable>
+
+          <Text style={[styles.sectionSubtitle, { marginTop: 16 }]}>Or join with a code your partner gave you:</Text>
+          <View style={styles.addPresetRow}>
+            <TextInput
+              style={styles.addPresetInput}
+              value={joinCodeInput}
+              onChangeText={setJoinCodeInput}
+              placeholder="e.g. amber-otter-4721"
+              autoCapitalize="none"
+            />
+            <Pressable style={styles.addPresetButton} onPress={handleJoin} disabled={householdBusy}>
+              <Text style={styles.addPresetButtonText}>Join</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+      {householdMessage && <Text style={styles.backupMessage}>{householdMessage}</Text>}
+
       <Text style={styles.heading}>Baby's Age</Text>
       <View style={styles.dateRow}>
         <NumberField
@@ -103,7 +213,7 @@ export default function ProfileScreen({
       </View>
       <Text style={styles.ageText}>{formatAge(dateOfBirth)}</Text>
       {dateOfBirth !== null && (
-        <Pressable onPress={() => onSetDateOfBirth(null)}>
+        <Pressable style={styles.unlinkButton} onPress={() => onSetDateOfBirth(null)}>
           <Text style={styles.link}>Clear date of birth</Text>
         </Pressable>
       )}
@@ -440,10 +550,19 @@ const styles = StyleSheet.create({
     color: '#6650A4',
   },
   link: {
-    marginTop: 6,
     fontSize: 13,
     color: '#79747E',
     textDecorationLine: 'underline',
+  },
+  unlinkButton: {
+    marginTop: 16,
+  },
+  inviteCode: {
+    marginTop: 8,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#6650A4',
+    letterSpacing: 0.5,
   },
   disclaimer: {
     marginTop: 20,

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { deleteEventFromHousehold, pushEventToHousehold, subscribeToHouseholdEvents } from './householdSync';
 import { clearEvents, loadEvents, saveEvents } from './storage';
 import { startOfDay } from './format';
 import { EventType, TrackedEvent } from './types';
@@ -16,7 +17,7 @@ export interface HomeStats {
   poopNappyCountToday: number;
 }
 
-export function useEvents() {
+export function useEvents(householdId: string | null, displayName: string) {
   const [events, setEvents] = useState<TrackedEvent[]>([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -31,43 +32,88 @@ export function useEvents() {
     reload();
   }, [reload]);
 
-  const logEventAt = useCallback(async (type: EventType, timestamp: number): Promise<TrackedEvent> => {
-    const event: TrackedEvent = { id: makeId(), type, timestamp };
-    setEvents((prev) => {
-      const next = [event, ...prev].sort((a, b) => b.timestamp - a.timestamp);
-      saveEvents(next);
-      return next;
+  // Mirror remote changes from the shared household into local storage.
+  useEffect(() => {
+    if (!householdId) return;
+    const unsubscribe = subscribeToHouseholdEvents(householdId, (change) => {
+      setEvents((prev) => {
+        let next: TrackedEvent[];
+        if (change.type === 'remove') {
+          next = prev.filter((e) => e.id !== change.id);
+        } else {
+          const exists = prev.some((e) => e.id === change.event.id);
+          next = exists
+            ? prev.map((e) => (e.id === change.event.id ? change.event : e))
+            : [change.event, ...prev];
+          next = next.sort((a, b) => b.timestamp - a.timestamp);
+        }
+        saveEvents(next);
+        return next;
+      });
     });
-    return event;
-  }, []);
+    return unsubscribe;
+  }, [householdId]);
+
+  const logEventAt = useCallback(
+    async (type: EventType, timestamp: number): Promise<TrackedEvent> => {
+      const event: TrackedEvent = { id: makeId(), type, timestamp };
+      if (displayName) event.loggedBy = displayName;
+      setEvents((prev) => {
+        const next = [event, ...prev].sort((a, b) => b.timestamp - a.timestamp);
+        saveEvents(next);
+        return next;
+      });
+      if (householdId) pushEventToHousehold(householdId, event);
+      return event;
+    },
+    [householdId, displayName]
+  );
 
   const logEvent = useCallback((type: EventType) => logEventAt(type, Date.now()), [logEventAt]);
 
-  const deleteEvent = useCallback((id: string) => {
-    setEvents((prev) => {
-      const next = prev.filter((e) => e.id !== id);
-      saveEvents(next);
-      return next;
-    });
-  }, []);
+  const deleteEvent = useCallback(
+    (id: string) => {
+      setEvents((prev) => {
+        const next = prev.filter((e) => e.id !== id);
+        saveEvents(next);
+        return next;
+      });
+      if (householdId) deleteEventFromHousehold(householdId, id);
+    },
+    [householdId]
+  );
 
-  const updateEventTime = useCallback((id: string, timestamp: number) => {
-    setEvents((prev) => {
-      const next = prev
-        .map((e) => (e.id === id ? { ...e, timestamp } : e))
-        .sort((a, b) => b.timestamp - a.timestamp);
-      saveEvents(next);
-      return next;
-    });
-  }, []);
+  const updateEventTime = useCallback(
+    (id: string, timestamp: number) => {
+      setEvents((prev) => {
+        const next = prev
+          .map((e) => (e.id === id ? { ...e, timestamp } : e))
+          .sort((a, b) => b.timestamp - a.timestamp);
+        saveEvents(next);
+        return next;
+      });
+      if (householdId) {
+        const existing = events.find((e) => e.id === id);
+        if (existing) pushEventToHousehold(householdId, { ...existing, timestamp });
+      }
+    },
+    [householdId, events]
+  );
 
-  const setEventDetail = useCallback((id: string, detail: string) => {
-    setEvents((prev) => {
-      const next = prev.map((e) => (e.id === id ? { ...e, detail } : e));
-      saveEvents(next);
-      return next;
-    });
-  }, []);
+  const setEventDetail = useCallback(
+    (id: string, detail: string) => {
+      setEvents((prev) => {
+        const next = prev.map((e) => (e.id === id ? { ...e, detail } : e));
+        saveEvents(next);
+        return next;
+      });
+      if (householdId) {
+        const existing = events.find((e) => e.id === id);
+        if (existing) pushEventToHousehold(householdId, { ...existing, detail });
+      }
+    },
+    [householdId, events]
+  );
 
   const resetAllEvents = useCallback(async () => {
     await clearEvents();
