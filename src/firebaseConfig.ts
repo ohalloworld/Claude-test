@@ -1,19 +1,15 @@
-// Fill these in with your own Firebase project's values (Project settings →
-// General → Your apps → SDK setup and configuration → Config). These are not
-// secret — Firebase's actual security is enforced by Firestore security
-// rules (see firestore.rules.txt in the repo root), not by hiding this
-// config — so it's safe to commit as-is once filled in.
-//
-// Until you replace the placeholders below, sharing/sync stays disabled and
-// the app works exactly as it did before (fully local to this device).
+// Firebase project: baby-tracker-a52ff. These values are not secret —
+// Firebase's actual security is enforced by Firestore security rules (see
+// firestore.rules in the repo root), not by hiding this config — so it's
+// safe to commit as-is.
 
 export const firebaseConfig = {
-  apiKey: 'REPLACE_ME',
-  authDomain: 'REPLACE_ME.firebaseapp.com',
-  projectId: 'REPLACE_ME',
-  storageBucket: 'REPLACE_ME.appspot.com',
-  messagingSenderId: 'REPLACE_ME',
-  appId: 'REPLACE_ME',
+  apiKey: 'AIzaSyAou529HDa3mTGXm22S7Gb8NN8zhq3YKvU',
+  authDomain: 'baby-tracker-a52ff.firebaseapp.com',
+  projectId: 'baby-tracker-a52ff',
+  storageBucket: 'baby-tracker-a52ff.firebasestorage.app',
+  messagingSenderId: '232835885505',
+  appId: '1:232835885505:web:ef1b7906907c7111712740',
 };
 
 export function isFirebaseConfigured(): boolean {
